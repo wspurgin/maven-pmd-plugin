@@ -313,10 +313,8 @@ public class PmdReport
 
                 Report report = generateReport( locale );
 
-                if ( !isHtml() && !isXml() )
-                {
-                    writeNonHtml( report );
-                }
+                writeInternalXml ( report );
+                write( report );
             }
             finally
             {
@@ -486,13 +484,6 @@ public class PmdReport
 
         removeExcludedViolations( renderer.getViolations() );
 
-        // if format is XML, we need to output it even if the file list is empty or we have no violations
-        // so the "check" goals can check for violations
-        if ( isXml() && renderer != null )
-        {
-            writeNonHtml( renderer.asReport() );
-        }
-
         if ( benchmark )
         {
             try ( PrintStream benchmarkFileStream = new PrintStream( benchmarkOutputFilename ) )
@@ -626,20 +617,47 @@ public class PmdReport
     }
 
     /**
-     * Use the PMD renderers to render in any format aside from HTML.
+     * Use the PMD renderers to render in configured format (for final output)
+     * as defined by the configuration.
      *
      * @param report
      * @throws MavenReportException
      */
-    private void writeNonHtml( Report report )
+    private void write( Report report )
         throws MavenReportException
     {
-        Renderer r = createRenderer();
+      write( report, format );
+    }
+
+    /**
+     * Output report in XML report form (used internally by check goal).
+     *
+     * @param report
+     * @throws MavenReportException
+     */
+    private void writeInternalXml( Report report )
+        throws MavenReportException
+    {
+      write( report, "xml" );
+    }
+
+    /**
+     * Use the PMD renderers to render in any format.
+     *
+     * @param report
+     * @param format
+     * @throws MavenReportException
+     */
+    private void write( final Report report, final String format )
+        throws MavenReportException
+    {
+        Renderer r = createRenderer( format );
 
         if ( r == null )
         {
             return;
         }
+
 
         File targetFile = new File( targetDirectory, "pmd." + format );
         try ( Writer writer = new OutputStreamWriter( new FileOutputStream( targetFile ), getOutputEncoding() ) )
@@ -821,7 +839,7 @@ public class PmdReport
      * @return the renderer based on the configured output
      * @throws org.apache.maven.reporting.MavenReportException if no renderer found for the output type
      */
-    public final Renderer createRenderer()
+    public final Renderer createRenderer( final String format )
         throws MavenReportException
     {
         Renderer result = null;
